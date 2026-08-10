@@ -1,4 +1,4 @@
-import type { ProjectStatus } from "@/types";
+import type { ProjectStatus, TaskStatus } from "@/types";
 
 export const publicRoutes = [ // Routes that do not require authentication
     "/sign-in", 
@@ -24,4 +24,14 @@ export const getTaskStatusColor = (status: ProjectStatus) => {
         default:
             return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300"
     }
+};
+
+export const getProjectProgress = (tasks: { status: TaskStatus }[]) => {
+    if (!tasks || tasks.length === 0) {
+        return 0;
+    }
+
+    
+    const completed = tasks.filter((task) => task.status === "Done").length;
+    return Math.round((completed / tasks.length) * 100);
 };

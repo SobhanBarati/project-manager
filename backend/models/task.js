@@ -18,7 +18,7 @@ const taskSchema = new Schema(
         },
         status: {
             type: String,
-            enum: ["To Do" , "In progress" , "Done"],
+            enum: ["To Do" , "In Progress" , "Done"],
             default: "To Do",
         },
         priority: {
@@ -26,10 +26,10 @@ const taskSchema = new Schema(
             enum: ["Low" , "Medium" , "High"],
             default: "Medium",
         },
-        assignees: {
+        assignees: [{
             type: Schema.Types.ObjectId,
             ref: "User",
-        },
+        }],
         watchers: {
             type: Schema.Types.ObjectId,
             ref: "User",
@@ -98,6 +98,6 @@ const taskSchema = new Schema(
     { timestamps: true }
 );
 
-const Task = mongoose.model("Task", taskSchemaSchema);
+const Task = mongoose.model("Task", taskSchema);
 
 export default Task;

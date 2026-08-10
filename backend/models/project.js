@@ -33,10 +33,10 @@ const projectSchema = new Schema(
             max: 100,
             default: 0,
         },
-        tasks: {
+        tasks: [{
             type: Schema.Types.ObjectId,
             ref: "Task",
-        },
+        }],
         members: [
             {
                 user: {
