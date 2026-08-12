@@ -1,4 +1,4 @@
-import  mongoose , { Schema , model } from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 
 const taskSchema = new Schema(
     {
@@ -18,22 +18,22 @@ const taskSchema = new Schema(
         },
         status: {
             type: String,
-            enum: ["To Do" , "In Progress" , "Done"],
+            enum: ["To Do", "In Progress", "Done"],
             default: "To Do",
         },
         priority: {
             type: String,
-            enum: ["Low" , "Medium" , "High"],
+            enum: ["Low", "Medium", "High"],
             default: "Medium",
         },
         assignees: [{
             type: Schema.Types.ObjectId,
             ref: "User",
         }],
-        watchers: {
+        watchers: [{  // ✅ آرایه
             type: Schema.Types.ObjectId,
             ref: "User",
-        },
+        }],
         dueDate: {
             type: Date,
         },
@@ -53,22 +53,20 @@ const taskSchema = new Schema(
                 type: String,
             }
         ],
-        subTasks: [
-            {
-                title: {
-                    type: String,
-                    required: true,
-                },
-                completed: {
-                    type: Boolean,
-                    default: false,
-                },
-                createdAt: {
-                    type: Date,
-                    default: Date.now(),
-                },
+        subtasks: [{
+            title: {
+                type: String,
+                required: true,
             },
-        ],
+            completed: {
+                type: Boolean,
+                default: false,
+            },
+            createdAt: {
+                type: Date,
+                default: Date.now,
+            },
+        }],
         comments: [
             {
                 type: Schema.Types.ObjectId,
@@ -77,12 +75,12 @@ const taskSchema = new Schema(
         ],
         attachments: [
             {
-                fileName: { type: String , required: true },
-                fileUrl: { type: String , required: true },
+                fileName: { type: String, required: true },
+                fileUrl: { type: String, required: true },
                 fileType: { type: String },
                 fileSize: { type: Number },
-                uploadedBy: { type: Schema.Types.ObjectId , ref: "User" },
-                uploadedAt: { type: Date , default: Date.now() },
+                uploadedBy: { type: Schema.Types.ObjectId, ref: "User" },
+                uploadedAt: { type: Date, default: Date.now },
             },
         ],
         createdBy: {
