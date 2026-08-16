@@ -201,3 +201,10 @@ export const useAchievedTaskMutation = () => {
         },
     });
 };
+
+export const useGetMyTasksQuery = () => {
+    return useQuery({
+        queryKey: ["my-tasks" , "user"],
+        queryFn: () => fetchData("/tasks/my-tasks"),
+    });
+};

@@ -12,8 +12,9 @@ import {
     DropdownMenuGroup,
 } from "../ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Link, useLoaderData } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { WorkspaceAvatar } from "../workspace/workspace-avatar";
+import { useGetWorkspacesQuery } from "@/hooks/use-workspace";
 
 interface HeaderProps {
     onWorkspaceSelected: (workspace: Workspace) => void;
@@ -26,15 +27,43 @@ export const Header = ({
     selectedWorkspace,
     onCreateWorkspace,
 }: HeaderProps) => {
-
+    const navigate = useNavigate();
     const { user, logout } = useAuth();
-    const { workspaces } = useLoaderData() as { workspaces: Workspace[] };
+    const { data, isLoading } = useGetWorkspacesQuery() as {
+        data: Workspace[];
+        isLoading: boolean;
+    };
+    const workspaces = data || [];
+    const isOnWorkspacePage = useLocation().pathname.includes("/workspace");
+
+    const handleOnClick = (workspace: Workspace) => {
+        onWorkspaceSelected(workspace);
+        const location = window.location;
+        if (isOnWorkspacePage) {
+            navigate(`/workspaces/${workspace._id}`);
+        } else {
+            const basePath = location.pathname;
+            navigate(`${basePath}?workspaceId=${workspace._id}`);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="bg-background sticky top-0 z-40 border-b">
+                <div className="flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
+                    <div className="h-10 w-32 animate-pulse bg-muted rounded" />
+                    <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 animate-pulse bg-muted rounded-full" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-background sticky top-0 z-40 border-b">
             <div className="flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8 py-4">
                 <DropdownMenu>
-                    {/* ✅ DropdownMenuTrigger با استایل مستقیم - بدون Button اضافی */}
                     <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background border border-input hover:bg-accent hover:text-accent-foreground h-10 py-2 px-4">
                         {selectedWorkspace ? (
                             <>
@@ -51,17 +80,17 @@ export const Header = ({
                         )}
                     </DropdownMenuTrigger>
 
-                    <DropdownMenuContent align="end" className="min-w-[180px]">
+                    <DropdownMenuContent align="end" className="min-w-45">
                         <DropdownMenuGroup>
                             <DropdownMenuLabel>Workspace</DropdownMenuLabel>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
 
                         <DropdownMenuGroup>
-                            {workspaces.map((ws) => (
+                            {workspaces.map((ws: Workspace) => (  // ✅ تایپ ws
                                 <DropdownMenuItem
                                     key={ws._id}
-                                    onClick={() => onWorkspaceSelected(ws)}
+                                    onClick={() => handleOnClick(ws)}
                                 >
                                     {ws.color && (
                                         <WorkspaceAvatar color={ws.color} name={ws.name} />

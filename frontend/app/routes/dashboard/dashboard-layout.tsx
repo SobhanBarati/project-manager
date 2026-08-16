@@ -6,7 +6,7 @@ import { CreateWorkspace } from '@/components/workspace/create-workspace';
 import { fetchData } from '@/lib/fetch-util';
 import { useAuth } from '@/provider/auth-context';
 import type { Workspace } from '@/types';
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Navigate, Outlet } from 'react-router';
 
 export const clientLoader = async() => {

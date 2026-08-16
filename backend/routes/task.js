@@ -18,6 +18,7 @@ import {
     getCommentsByTaskId,
     watchTask,
     achievedTask,
+    getMyTasks,
 } from "../controllers/task.js";
 import authMiddleware from "../middleware/auth-middleware.js"; 
 
@@ -145,6 +146,11 @@ router.put("/:taskId/assignees",
     }),
     updateTaskAssignees
 );
+
+router.get("/my-tasks",
+    authMiddleware,
+    getMyTasks,
+)
 
 router.put("/:taskId/priority",
     authMiddleware,
