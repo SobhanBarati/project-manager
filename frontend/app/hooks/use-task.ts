@@ -208,3 +208,64 @@ export const useGetMyTasksQuery = () => {
         queryFn: () => fetchData("/tasks/my-tasks"),
     });
 };
+
+export const useGetArchivedTasksQuery = (workspaceId?: string) => {
+    return useQuery({
+        queryKey: ["archived-tasks", workspaceId],
+        queryFn: async () => {
+            if (!workspaceId) {
+                return [];
+            }
+            const response = await fetchData(`/tasks/archived?workspaceId=${workspaceId}`);
+            return response;
+        },
+        enabled: !!workspaceId,
+    });
+};
+
+
+export const useArchiveTaskMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (taskId: string) =>
+            postData(`/tasks/${taskId}/archive`, {}),
+        onSuccess: (data: any) => {
+            queryClient.invalidateQueries({
+                queryKey: ["task", data._id],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ["archived-tasks"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ["my-tasks"],
+            });
+        },
+    });
+};
+
+
+// hooks/use-task.ts
+
+export const useUnarchiveTaskMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (taskId: string) =>
+            postData(`/tasks/${taskId}/unarchive`, {}),
+        onSuccess: (data: any) => {
+            queryClient.invalidateQueries({
+                queryKey: ["task", data._id],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ["archived-tasks"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ["my-tasks"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ["project"],
+            });
+        },
+    });
+};

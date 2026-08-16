@@ -8,6 +8,7 @@ export interface User {
     isEmailVerified: boolean;
     updatedAt: Date;
     profilePicture?: string;
+    settings?: UserSettings;
 }
 
 export interface Workspace {
@@ -188,4 +189,18 @@ export interface WorkspaceProductivityData {
   name: string;
   completed: number;
   total: number;
+}
+
+export interface UserSettings {
+  notifications: {
+    taskAssignments: boolean;
+    taskUpdates: boolean;
+    projectUpdates: boolean;
+    workspaceInvites: boolean;
+    emailNotifications: boolean;
+  };
+  appearance: {
+    theme: 'light' | 'dark' | 'system';
+    compactView: boolean;
+  };
 }

@@ -34,3 +34,56 @@ export const UseProjectQuery = (projectId: string) => {
         retry: false,
     });
 };
+
+export const useGetArchivedProjectsQuery = (workspaceId?: string) => {
+    return useQuery({
+        queryKey: ["archived-projects", workspaceId],
+        queryFn: async () => {
+            if (!workspaceId) {
+                return [];
+            }
+            const response = await fetchData(`/projects/archived?workspaceId=${workspaceId}`);
+            return response;
+        },
+        enabled: !!workspaceId, 
+    });
+};
+
+export const useArchiveProjectMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (projectId: string) =>
+            postData(`/projects/${projectId}/archive`, {}),
+        onSuccess: () => {
+            queryClient.invalidateQueries({
+                queryKey: ["archived-projects"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ["workspace"],
+            });
+        },
+    });
+};
+
+// hooks/use-project.ts
+
+export const useUnarchiveProjectMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (projectId: string) =>
+            postData(`/projects/${projectId}/unarchive`, {}),
+        onSuccess: () => {
+            queryClient.invalidateQueries({
+                queryKey: ["archived-projects"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ["workspace"],
+            });
+            queryClient.invalidateQueries({
+                queryKey: ["project"],
+            });
+        },
+    });
+};

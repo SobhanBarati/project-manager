@@ -669,6 +669,107 @@ const getMyTasks = async (req, res) => {
     }
 };
 
+// ============ GET ARCHIVED TASKS ============
+const getArchivedTasks = async (req, res) => {
+    try {
+        const { workspaceId } = req.query;
+
+        if (!workspaceId) {
+            return res.status(400).json({
+                message: "workspaceId is required",
+            });
+        }
+
+        // پیدا کردن تمام پروژه‌های workspace
+        const projects = await Project.find({
+            workspace: workspaceId,
+            isArchived: false,
+        });
+
+        const projectIds = projects.map((project) => project._id);
+
+        // پیدا کردن تسک‌های بایگانی شده در آن پروژه‌ها
+        const archivedTasks = await Task.find({
+            project: { $in: projectIds },
+            isArchived: true,
+        })
+            .populate("assignees", "name profilePicture email")
+            .populate("project", "title workspace")
+            .sort({ updatedAt: -1 });
+
+        res.status(200).json(archivedTasks);
+    } catch (error) {
+        console.error("❌ Get archived tasks error:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
+// ============ UNARCHIVE TASK ============
+const unarchiveTask = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+
+        const task = await Task.findById(taskId);
+
+        if (!task) {
+            return res.status(404).json({
+                message: "Task not found",
+            });
+        }
+
+        const project = await Project.findById(task.project);
+        if (!project) {
+            return res.status(404).json({
+                message: "Project not found",
+            });
+        }
+
+        const isMember = project.members.some(
+            (member) => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            return res.status(403).json({
+                message: "You are not a member of this project",
+            });
+        }
+
+        if (!task.isArchived) {
+            return res.status(400).json({
+                message: "Task is not archived",
+            });
+        }
+
+        task.isArchived = false;
+        await task.save();
+
+        await recordActivity(
+            req.user._id,
+            "updated_task",
+            "Task",
+            taskId,
+            {
+                description: `unarchived task ${task.title}`,
+            }
+        );
+
+        res.status(200).json({
+            message: "Task unarchived successfully",
+            task,
+        });
+    } catch (error) {
+        console.error("❌ Unarchive task error:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
+
 export { 
     createTask, 
     getTaskById, 
@@ -685,4 +786,6 @@ export {
     watchTask,
     achievedTask,
     getMyTasks,
+    getArchivedTasks,
+    unarchiveTask,
 };

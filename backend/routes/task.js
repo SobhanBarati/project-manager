@@ -19,6 +19,8 @@ import {
     watchTask,
     achievedTask,
     getMyTasks,
+    getArchivedTasks,
+    unarchiveTask,
 } from "../controllers/task.js";
 import authMiddleware from "../middleware/auth-middleware.js"; 
 
@@ -150,7 +152,27 @@ router.put("/:taskId/assignees",
 router.get("/my-tasks",
     authMiddleware,
     getMyTasks,
-)
+);
+
+router.get("/archived",
+    authMiddleware,
+    validateRequest({
+        query: z.object({
+            workspaceId: z.string(),
+        }),
+    }),
+    getArchivedTasks
+);
+
+router.put("/:taskId/unarchive",
+    authMiddleware,
+    validateRequest({
+        params: z.object({
+            taskId: z.string(),
+        }),
+    }),
+    unarchiveTask
+);
 
 router.put("/:taskId/priority",
     authMiddleware,

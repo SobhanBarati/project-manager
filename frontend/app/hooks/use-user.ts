@@ -4,7 +4,7 @@ import type {
   ProfileFormData,
 } from "@/routes/user/profile";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { User } from "@/types"; // ✅ اضافه کنید
+import type { User, UserSettings } from "@/types"; // ✅ اضافه کنید
 
 const queryKey: string[] = ["user"];
 
@@ -12,6 +12,27 @@ export const useUserProfileQuery = () => {
   return useQuery({
     queryKey,
     queryFn: () => fetchData<User>("/users/profile"), // ✅ تایپ User
+  });
+};
+
+// ✅ هوک جدید با Type مشخص
+export const useUserSettingsQuery = () => {
+  return useQuery({
+    queryKey: ["user-settings"],
+    queryFn: () => fetchData<UserSettings>("/users/settings"),
+  });
+};
+
+// ✅ هوک جدید با Type مشخص
+export const useUpdateUserSettings = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: Partial<UserSettings>) => 
+      updateData<UserSettings>("/users/settings", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-settings"] });
+    },
   });
 };
 

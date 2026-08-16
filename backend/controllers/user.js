@@ -81,4 +81,78 @@ const changePassword = async (req, res) => {
   }
 };
 
+// ============ GET USER SETTINGS ============
+export const getUserSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("settings");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // اگر تنظیمات وجود نداشت، مقدار پیش‌فرض برگردان
+    const settings = user.settings || {
+      notifications: {
+        taskAssignments: true,
+        taskUpdates: true,
+        projectUpdates: true,
+        workspaceInvites: true,
+        emailNotifications: true,
+      },
+      appearance: {
+        theme: "system",
+        compactView: false,
+      },
+    };
+
+    res.status(200).json(settings);
+  } catch (error) {
+    console.error("Error fetching user settings:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ============ UPDATE USER SETTINGS ============
+export const updateUserSettings = async (req, res) => {
+  try {
+    const { notifications, appearance } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // اگر تنظیمات وجود نداشت، ایجاد کن
+    if (!user.settings) {
+      user.settings = {};
+    }
+
+    // به‌روزرسانی تنظیمات
+    if (notifications) {
+      user.settings.notifications = {
+        ...user.settings.notifications,
+        ...notifications,
+      };
+    }
+
+    if (appearance) {
+      user.settings.appearance = {
+        ...user.settings.appearance,
+        ...appearance,
+      };
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Settings updated successfully",
+      settings: user.settings,
+    });
+  } catch (error) {
+    console.error("Error updating user settings:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 export { getUserProfile, updateUserProfile, changePassword };

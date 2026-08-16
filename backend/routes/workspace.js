@@ -15,6 +15,10 @@ import {
     acceptGenerateInvite,
     acceptInviteByToken,
     inviteUserToWorkspace,
+    setDefaultWorkspace,        // ✅ اضافه کنید
+    getDefaultWorkspace,        // ✅ اضافه کنید
+    updateWorkspaceNotifications, // ✅ اضافه کنید
+    exportWorkspaceData,        // ✅ اضافه کنید
 } from "../controllers/workspace.js";
 
 import { z } from "zod"; 
@@ -28,6 +32,28 @@ router.post(
         body: workspaceSchema
     }),
     createWorkspace
+);
+
+// دریافت ورک‌اسپیس پیش‌فرض
+router.get(
+    "/default",
+    authMiddleware,
+    getDefaultWorkspace
+);
+
+// به‌روزرسانی تنظیمات نوتیفیکیشن ورک‌اسپیس
+router.put(
+    "/notifications",
+    authMiddleware,
+    validateRequest({
+        body: z.object({
+            enabled: z.boolean().optional(),
+            taskUpdates: z.boolean().optional(),
+            projectUpdates: z.boolean().optional(),
+            memberUpdates: z.boolean().optional(),
+        }),
+    }),
+    updateWorkspaceNotifications
 );
 
 router.post(
@@ -59,5 +85,29 @@ router.get("/" , authMiddleware , getWorkspaces);
 router.get("/:workspaceId" , authMiddleware , getWorkspaceDetails);
 router.get("/:workspaceId/projects" , authMiddleware , getWorkspaceProjects);
 router.get("/:workspaceId/stats", authMiddleware , getWorkspaceStats);
+
+// تنظیم ورک‌اسپیس پیش‌فرض
+router.put(
+    "/:workspaceId/set-default",
+    authMiddleware,
+    validateRequest({
+        params: z.object({
+            workspaceId: z.string(),
+        }),
+    }),
+    setDefaultWorkspace
+);
+
+// خروجی گرفتن از داده‌های ورک‌اسپیس
+router.get(
+    "/:workspaceId/export",
+    authMiddleware,
+    validateRequest({
+        params: z.object({
+            workspaceId: z.string(),
+        }),
+    }),
+    exportWorkspaceData
+);
 
 export default router;

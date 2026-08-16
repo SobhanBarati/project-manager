@@ -5,6 +5,7 @@ import User from "../models/user.js";
 import jwt from "jsonwebtoken";
 import { sendEmail } from "../libs/email.js";
 import { recordActivity } from "../libs/index.js";
+import Task from "../models/task.js"; 
 
 const createWorkspace = async (req, res) => {
     try {
@@ -552,6 +553,257 @@ const acceptInviteByToken = async (req, res) => {
 
     } catch (error) {
         console.error("Accept invite by token error:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
+// ============ SET DEFAULT WORKSPACE ============
+export const setDefaultWorkspace = async (req, res) => {
+    try {
+        const { workspaceId } = req.params;
+        
+        // بررسی وجود ورک‌اسپیس
+        const workspace = await Workspace.findById(workspaceId);
+        if (!workspace) {
+            return res.status(404).json({
+                message: "Workspace not found",
+            });
+        }
+
+        // بررسی عضویت کاربر
+        const isMember = workspace.members.some(
+            (member) => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            return res.status(403).json({
+                message: "You are not a member of this workspace",
+            });
+        }
+
+        // تنظیم ورک‌اسپیس پیش‌فرض
+        const user = await User.findById(req.user._id);
+        if (!user.settings) {
+            user.settings = {};
+        }
+        if (!user.settings.workspace) {
+            user.settings.workspace = {};
+        }
+        
+        user.settings.workspace.defaultWorkspace = workspaceId;
+        await user.save();
+
+        res.status(200).json({
+            message: "Default workspace set successfully",
+            defaultWorkspace: workspaceId,
+        });
+    } catch (error) {
+        console.error("❌ Set default workspace error:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
+// ============ GET DEFAULT WORKSPACE ============
+export const getDefaultWorkspace = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found",
+            });
+        }
+
+        const defaultWorkspaceId = user.settings?.workspace?.defaultWorkspace;
+
+        if (!defaultWorkspaceId) {
+            return res.status(200).json({
+                defaultWorkspace: null,
+            });
+        }
+
+        // دریافت اطلاعات ورک‌اسپیس پیش‌فرض
+        const defaultWorkspace = await Workspace.findById(defaultWorkspaceId);
+
+        if (!defaultWorkspace) {
+            return res.status(200).json({
+                defaultWorkspace: null,
+            });
+        }
+
+        // بررسی عضویت کاربر
+        const isMember = defaultWorkspace.members.some(
+            (member) => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            // اگر کاربر عضو نیست، تنظیمات را پاک کنید
+            user.settings.workspace.defaultWorkspace = null;
+            await user.save();
+            
+            return res.status(200).json({
+                defaultWorkspace: null,
+            });
+        }
+
+        res.status(200).json({
+            defaultWorkspace,
+        });
+    } catch (error) {
+        console.error("❌ Get default workspace error:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
+// ============ UPDATE WORKSPACE NOTIFICATIONS ============
+export const updateWorkspaceNotifications = async (req, res) => {
+    try {
+        const { enabled, taskUpdates, projectUpdates, memberUpdates } = req.body;
+
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found",
+            });
+        }
+
+        if (!user.settings) {
+            user.settings = {};
+        }
+        if (!user.settings.workspace) {
+            user.settings.workspace = {};
+        }
+        if (!user.settings.workspace.notifications) {
+            user.settings.workspace.notifications = {};
+        }
+
+        // به‌روزرسانی تنظیمات
+        if (enabled !== undefined) {
+            user.settings.workspace.notifications.enabled = enabled;
+        }
+        if (taskUpdates !== undefined) {
+            user.settings.workspace.notifications.taskUpdates = taskUpdates;
+        }
+        if (projectUpdates !== undefined) {
+            user.settings.workspace.notifications.projectUpdates = projectUpdates;
+        }
+        if (memberUpdates !== undefined) {
+            user.settings.workspace.notifications.memberUpdates = memberUpdates;
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            message: "Workspace notifications updated successfully",
+            notifications: user.settings.workspace.notifications,
+        });
+    } catch (error) {
+        console.error("❌ Update workspace notifications error:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
+// ============ EXPORT WORKSPACE DATA ============
+export const exportWorkspaceData = async (req, res) => {
+    try {
+        const { workspaceId } = req.params;
+
+        // بررسی وجود ورک‌اسپیس
+        const workspace = await Workspace.findById(workspaceId);
+        if (!workspace) {
+            return res.status(404).json({
+                message: "Workspace not found",
+            });
+        }
+
+        // بررسی عضویت کاربر
+        const isMember = workspace.members.some(
+            (member) => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            return res.status(403).json({
+                message: "You are not a member of this workspace",
+            });
+        }
+
+        // دریافت تمام پروژه‌های ورک‌اسپیس
+        const projects = await Project.find({ workspace: workspaceId })
+            .populate("members.user", "name email")
+            .populate("createdBy", "name email")
+            .lean();
+
+        // دریافت تمام تسک‌های پروژه‌ها
+        const projectIds = projects.map((project) => project._id);
+        const tasks = await Task.find({ project: { $in: projectIds } })
+            .populate("assignees", "name email")
+            .populate("createdBy", "name email")
+            .lean();
+
+        // ایجاد داده برای خروجی
+        const exportData = {
+            workspace: {
+                id: workspace._id,
+                name: workspace.name,
+                description: workspace.description,
+                color: workspace.color,
+                createdAt: workspace.createdAt,
+                updatedAt: workspace.updatedAt,
+            },
+            members: workspace.members.map((member) => ({
+                name: member.user.name,
+                email: member.user.email,
+                role: member.role,
+                joinedAt: member.joinedAt,
+            })),
+            projects: projects.map((project) => ({
+                id: project._id,
+                title: project.title,
+                description: project.description,
+                status: project.status,
+                startDate: project.startDate,
+                dueDate: project.dueDate,
+                progress: project.progress,
+                tags: project.tags,
+                createdAt: project.createdAt,
+                updatedAt: project.updatedAt,
+            })),
+            tasks: tasks.map((task) => ({
+                id: task._id,
+                title: task.title,
+                description: task.description,
+                status: task.status,
+                priority: task.priority,
+                dueDate: task.dueDate,
+                estimatedHours: task.estimatedHours,
+                actualHours: task.actualHours,
+                tags: task.tags,
+                subtasks: task.subtasks,
+                createdAt: task.createdAt,
+                updatedAt: task.updatedAt,
+            })),
+            exportedAt: new Date().toISOString(),
+        };
+
+        // ارسال به صورت JSON
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename=workspace-${workspace.name}-export-${Date.now()}.json`);
+        res.status(200).json(exportData);
+    } catch (error) {
+        console.error("❌ Export workspace data error:", error);
         res.status(500).json({
             message: "Internal server error",
             error: error.message,

@@ -4,6 +4,8 @@ import {
   changePassword,
   getUserProfile,
   updateUserProfile,
+  getUserSettings,
+  updateUserSettings,
 } from "../controllers/user.js";
 import { z } from "zod";
 import { validateRequest } from "zod-express-middleware";
@@ -22,6 +24,34 @@ router.put(
   }),
   updateUserProfile
 );
+
+router.get(
+  "/settings",
+  authenticateUser,
+  getUserSettings
+);
+
+router.put(
+  "/settings",
+  authenticateUser,
+  validateRequest({
+    body: z.object({
+      notifications: z.object({
+        taskAssignments: z.boolean(),
+        taskUpdates: z.boolean(),
+        projectUpdates: z.boolean(),
+        workspaceInvites: z.boolean(),
+        emailNotifications: z.boolean(),
+      }).optional(),
+      appearance: z.object({
+        theme: z.enum(["light", "dark", "system"]),
+        compactView: z.boolean(),
+      }).optional(),
+    }),
+  }),
+  updateUserSettings
+);
+
 
 router.put(
   "/change-password",

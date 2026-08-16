@@ -125,3 +125,95 @@ export const getProjectTasks = async(req , res) => {
         });
     }
 };
+
+// ============ GET ARCHIVED PROJECTS ============
+export const getArchivedProjects = async (req, res) => {
+    try {
+        const { workspaceId } = req.query;
+
+        if (!workspaceId) {
+            return res.status(400).json({
+                message: "workspaceId is required",
+            });
+        }
+
+        // پیدا کردن پروژه‌های بایگانی شده در workspace
+        const archivedProjects = await Project.find({
+            workspace: workspaceId,
+            isArchived: true,
+        })
+            .populate("members.user", "name profilePicture email")
+            .populate("createdBy", "name profilePicture")
+            .sort({ updatedAt: -1 });
+
+        res.status(200).json(archivedProjects);
+    } catch (error) {
+        console.error("❌ Get archived projects error:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
+// ============ UNARCHIVE PROJECT ============
+export const unarchiveProject = async (req, res) => {
+    try {
+        const { projectId } = req.params;
+
+        const project = await Project.findById(projectId);
+
+        if (!project) {
+            return res.status(404).json({
+                message: "Project not found",
+            });
+        }
+
+        const workspace = await Workspace.findById(project.workspace);
+        if (!workspace) {
+            return res.status(404).json({
+                message: "Workspace not found",
+            });
+        }
+
+        const isMember = workspace.members.some(
+            (member) => member.user.toString() === req.user._id.toString()
+        );
+
+        if (!isMember) {
+            return res.status(403).json({
+                message: "You are not a member of this workspace",
+            });
+        }
+
+        if (!project.isArchived) {
+            return res.status(400).json({
+                message: "Project is not archived",
+            });
+        }
+
+        project.isArchived = false;
+        await project.save();
+
+        await recordActivity(
+            req.user._id,
+            "updated_project",
+            "Project",
+            projectId,
+            {
+                description: `unarchived project ${project.title}`,
+            }
+        );
+
+        res.status(200).json({
+            message: "Project unarchived successfully",
+            project,
+        });
+    } catch (error) {
+        console.error("❌ Unarchive project error:", error);
+        res.status(500).json({
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
