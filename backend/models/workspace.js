@@ -31,8 +31,9 @@ const workspaceModel = new Schema({
                         "member",
                         "admin",
                         "viewer",
+                        "contributor",
                     ],
-                    default: "member",
+                    default: "contributor",
                 },
                 joinedAt: {
                     type: Date,

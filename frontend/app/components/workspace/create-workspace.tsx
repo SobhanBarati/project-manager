@@ -53,20 +53,26 @@ export const CreateWorkspace = ({
     const { mutate , isPending } = useCreateWorkspace();
 
     const onSubmit = (data: WorkspaceForm) => {
-        mutate(data , {
-            onSuccess: ( data: any) => {
-                form.reset();
-                setIsCreatingWorkspace(false);
-                toast.success("Workspace created successfully");
-                navigate(`/dashboard/workspaces/${data._id}`);
-            },
-            onError: (error: any) => {
-                const errorMessage = error.response.data.message;
-                toast.error(errorMessage);
-                console.log(error);
-            },
-        });
-    };
+    mutate(data, {
+        onSuccess: (data: any) => {
+            console.log("✅ Full data from API:", data);
+            console.log("🔍 Workspace ID:", data._id);
+            
+            const targetUrl = `/dashboard/workspaces/${data._id}`;
+            console.log("🔗 Navigating to:", targetUrl);  // ✅ لاگ جدید
+            
+            form.reset();
+            setIsCreatingWorkspace(false);
+            toast.success("Workspace created successfully");
+            navigate(targetUrl);
+        },
+        onError: (error: any) => {
+            const errorMessage = error.response.data.message;
+            toast.error(errorMessage);
+            console.log(error);
+        },
+    });
+};
 
     return (
         <Dialog

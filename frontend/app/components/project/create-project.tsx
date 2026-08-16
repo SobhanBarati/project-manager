@@ -74,7 +74,7 @@ export const CreateProjectDialog = ({
 
     return(
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[540px]">
+            <DialogContent className="sm:max-w-135">
                 <DialogHeader>
                     <DialogTitle>
                         Create Project

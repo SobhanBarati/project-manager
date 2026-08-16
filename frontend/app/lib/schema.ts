@@ -60,5 +60,8 @@ export const createTaskSchema = z.object({
     assignees: z.array(z.string()).min(1, "At least one assignee is required"),
 });
 
-
+export const inviteMemberSchema = z.object({
+    email: z.string().email(),
+    role: z.enum(["owner" , "contributor" , "viewer"]),
+});
    
