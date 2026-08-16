@@ -1,6 +1,5 @@
-import { createContext, use, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@/types";
-import { set } from "zod";
 import { queryClient } from "./react-query-provider";
 import { useLocation, useNavigate } from "react-router";
 import { publicRoutes } from "@/lib";
@@ -9,18 +8,17 @@ interface AuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    //error: string | null;
     login: (data: any) => Promise<void>;
     logout: () => Promise<void>;
+    updateUser: (userData: Partial<User>) => void; 
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({children}: {children: React.ReactNode }) => {
-    const [user , setUser] = useState<User | null>(null);
-    const [isAuthenticated , setIsAuthenticated] = useState(false);
-    const [isLoading , setIsLoading] = useState(true);
-    //const [error, setError] = useState<string | null>(null);
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+    const [user, setUser] = useState<User | null>(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     const navigate = useNavigate();
     const currentPath = useLocation().pathname;
@@ -31,12 +29,12 @@ export const AuthProvider = ({children}: {children: React.ReactNode }) => {
         const checkAuth = async () => {
             setIsLoading(true);
             const userInfo = localStorage.getItem("user");
-            if(userInfo) {
+            if (userInfo) {
                 setUser(JSON.parse(userInfo));
                 setIsAuthenticated(true);
-            }else {
+            } else {
                 setIsAuthenticated(false);
-                if(!isPublicRoute) {
+                if (!isPublicRoute) {
                     navigate("/sign-in");
                 }
             }
@@ -46,7 +44,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode }) => {
         checkAuth();
     }, []);
 
-    // Listen for the "force-logout" event and call the logout function when it occurs
+    // Listen for the "force-logout" event
     useEffect(() => {
         const handleLogout = () => {
             logout();
@@ -56,12 +54,10 @@ export const AuthProvider = ({children}: {children: React.ReactNode }) => {
         return () => window.removeEventListener("force-logout", handleLogout);
     }, []);
 
-
     // login function
     const login = async (data: any) => {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
-
         setUser(data.user);
         setIsAuthenticated(true);
     };
@@ -70,33 +66,38 @@ export const AuthProvider = ({children}: {children: React.ReactNode }) => {
     const logout = async () => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-
         setUser(null);
         setIsAuthenticated(false);
-
         queryClient.clear();
+    };
+
+    // ✅ تابع به‌روزرسانی کاربر (برای Profile و جاهای دیگه)
+    const updateUser = (userData: Partial<User>) => {
+        if (user) {
+            const updatedUser = { ...user, ...userData };
+            setUser(updatedUser);
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+        }
     };
 
     const values = {
         user,
         isAuthenticated,
         isLoading,
-        //error,
         login,
         logout,
+        updateUser, // ✅ اضافه کنید
     };
 
-    return(
+    return (
         <AuthContext.Provider value={values}>{children}</AuthContext.Provider>
     );
 };
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
-
-    if(!context) {
+    if (!context) {
         throw new Error("useAuth must be used within an AuthProvider");
     }
     return context;
 };
-
