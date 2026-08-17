@@ -1,4 +1,4 @@
-// provider/theme-provider.tsx
+// frontend/app/provider/theme-provider.tsx
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
@@ -13,15 +13,24 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    // دریافت تم از localStorage
-    const saved = localStorage.getItem('theme') as Theme;
-    return saved || 'system';
-  });
-
+  const [theme, setTheme] = useState<Theme>('system');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+  const [mounted, setMounted] = useState(false);
+
+  // فقط در کلاینت (مرورگر) اجرا شود
+  useEffect(() => {
+    setMounted(true);
+    
+    // دریافت تم از localStorage
+    const savedTheme = localStorage.getItem('theme') as Theme;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+  }, []);
 
   useEffect(() => {
+    if (!mounted) return;
+
     // ذخیره در localStorage
     localStorage.setItem('theme', theme);
 
@@ -58,12 +67,13 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     
     mediaQuery.addEventListener('change', handler);
     return () => mediaQuery.removeEventListener('change', handler);
-  }, [theme]);
+  }, [theme, mounted]);
 
+  // در زمان SSR، مقدار پیش‌فرض را برگردان
   const value = {
     theme,
     setTheme,
-    resolvedTheme,
+    resolvedTheme: mounted ? resolvedTheme : 'light',
   };
 
   return (

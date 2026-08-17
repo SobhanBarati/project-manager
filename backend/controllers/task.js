@@ -1,10 +1,14 @@
+// backend/controllers/task.js
+
 import Project from "../models/project.js";
 import Task from "../models/task.js";
 import Workspace from "../models/workspace.js";
 import { recordActivity } from "../libs/index.js";
 import ActivityLog from "../models/activity.js";
 import Comment from "../models/comment.js";
+import { createNotification } from "../libs/notification.js";
 
+// ============ CREATE TASK ============
 const createTask = async(req , res) => {
     try {
         const { projectId } = req.params;
@@ -52,6 +56,31 @@ const createTask = async(req , res) => {
         project.tasks.push(newTask._id);
         await project.save();
 
+        // ======================================================
+        // ✅ CREATE NOTIFICATIONS FOR ASSIGNEES
+        // ======================================================
+        if (assignees && assignees.length > 0) {
+            for (const assigneeId of assignees) {
+                if (assigneeId.toString() !== req.user._id.toString()) {
+                    await createNotification({
+                        userId: assigneeId,
+                        title: "New task assigned to you",
+                        message: `${req.user.name} assigned you to "${title}"`,
+                        type: "task",
+                        link: `/workspaces/${workspace._id}/projects/${projectId}/tasks/${newTask._id}`,
+                        metadata: {
+                            taskId: newTask._id,
+                            projectId: projectId,
+                            workspaceId: workspace._id,
+                            assignedBy: req.user.name,
+                            assignedById: req.user._id,
+                        },
+                    });
+                    console.log(`📨 Notification sent to ${assigneeId}`);
+                }
+            }
+        }
+
         res.status(201).json(newTask);
 
     } catch (error) {
@@ -62,6 +91,7 @@ const createTask = async(req , res) => {
     }
 };
 
+// ============ GET TASK BY ID ============
 const getTaskById = async(req , res) => {
     try {
         const { taskId } = req.params;
@@ -81,7 +111,19 @@ const getTaskById = async(req , res) => {
           "name profilePicture"
         );
 
-        res.status(200).json({ task , project });
+        if (!project) {
+            return res.status(404).json({
+                message: "Project not found",
+            });
+        }
+
+        const workspace = await Workspace.findById(project.workspace);
+
+        res.status(200).json({ 
+            task, 
+            project,
+            workspace,
+        });
 
     } catch (error) {
         console.log(error);
@@ -91,6 +133,7 @@ const getTaskById = async(req , res) => {
     }
 };
 
+// ============ UPDATE TASK TITLE ============
 const updateTaskTitle = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -112,7 +155,6 @@ const updateTaskTitle = async (req, res) => {
             });
         }
       
-        // ._id
         const isMember = project.members.some(
             (member) => member.user._id.toString() === req.user._id.toString()
         );
@@ -128,7 +170,6 @@ const updateTaskTitle = async (req, res) => {
         task.title = title;
         await task.save();
       
-        // record activity
         await recordActivity(req.user._id, "updated_task", "Task", taskId, {
           description: `updated task title from ${oldTitle} to ${title}`,
         });
@@ -141,8 +182,9 @@ const updateTaskTitle = async (req, res) => {
             message: "Internal server error",
         });
     }   
-};  
+};
 
+// ============ UPDATE TASK DESCRIPTION ============
 const updateTaskDescription = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -164,7 +206,6 @@ const updateTaskDescription = async (req, res) => {
             });
         }
       
-        // ._id
         const isMember = project.members.some(
             (member) => member.user._id.toString() === req.user._id.toString()
         );
@@ -176,16 +217,15 @@ const updateTaskDescription = async (req, res) => {
         }
       
         const oldDescription = 
-            task.description.substring(0 , 50) +
-            (task.description.length > 50 ? "..." : "");
+            task.description?.substring(0 , 50) +
+            (task.description?.length > 50 ? "..." : "");
 
         const newDescription = 
-            description.substring(0 , 50) + (task.description.length > 50 ? "..." : "");
+            description?.substring(0 , 50) + (description?.length > 50 ? "..." : "");
       
         task.description = description;
         await task.save();
       
-        // record activity
         await recordActivity(req.user._id, "updated_task", "Task", taskId, {
           description: `updated task description from ${oldDescription} to ${newDescription}`,
         });
@@ -200,6 +240,7 @@ const updateTaskDescription = async (req, res) => {
     }   
 };
 
+// ============ UPDATE TASK STATUS ============
 const updateTaskStatus = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -221,7 +262,6 @@ const updateTaskStatus = async (req, res) => {
             });
         }
       
-        // ._id
         const isMember = project.members.some(
             (member) => member.user._id.toString() === req.user._id.toString()
         );
@@ -237,7 +277,6 @@ const updateTaskStatus = async (req, res) => {
         task.status = status;
         await task.save();
       
-        // record activity
         await recordActivity(req.user._id, "updated_task", "Task", taskId, {
           description: `updated task status from ${oldStatus} to ${status}`,
         });
@@ -250,8 +289,9 @@ const updateTaskStatus = async (req, res) => {
             message: "Internal server error",
         });
     }   
-};  
+};
 
+// ============ UPDATE TASK ASSIGNEES ============
 const updateTaskAssignees = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -272,8 +312,9 @@ const updateTaskAssignees = async (req, res) => {
                 message: "Project not found",
             });
         }
+
+        const workspace = await Workspace.findById(project.workspace);
       
-        // ._id
         const isMember = project.members.some(
             (member) => member.user._id.toString() === req.user._id.toString()
         );
@@ -284,12 +325,70 @@ const updateTaskAssignees = async (req, res) => {
             });
         }
       
-        const oldAssignees = task.assignees;
+        const oldAssignees = task.assignees.map(id => id.toString());
+        const newAssignees = assignees || [];
+
+        const addedAssignees = newAssignees.filter(
+            (id) => !oldAssignees.includes(id.toString())
+        );
+
+        const removedAssignees = oldAssignees.filter(
+            (id) => !newAssignees.map(a => a.toString()).includes(id)
+        );
+
+        // ======================================================
+        // ✅ ارسال نوتیفیکیشن برای کاربران جدید
+        // ======================================================
+        if (addedAssignees.length > 0) {
+            for (const assigneeId of addedAssignees) {
+                if (assigneeId.toString() !== req.user._id.toString()) {
+                    await createNotification({
+                        userId: assigneeId,
+                        title: "You were assigned to a task",
+                        message: `${req.user.name} assigned you to "${task.title}"`,
+                        type: "task",
+                        link: `/workspaces/${workspace._id}/projects/${project._id}/tasks/${task._id}`,
+                        metadata: {
+                            taskId: task._id,
+                            projectId: project._id,
+                            workspaceId: workspace._id,
+                            assignedBy: req.user.name,
+                            assignedById: req.user._id,
+                        },
+                    });
+                    console.log(`📨 Notification sent to ${assigneeId}`);
+                }
+            }
+        }
+
+        // ======================================================
+        // ✅ ارسال نوتیفیکیشن برای کاربرانی که حذف شدن
+        // ======================================================
+        if (removedAssignees.length > 0) {
+            for (const assigneeId of removedAssignees) {
+                if (assigneeId.toString() !== req.user._id.toString()) {
+                    await createNotification({
+                        userId: assigneeId,
+                        title: "You were removed from a task",
+                        message: `${req.user.name} removed you from "${task.title}"`,
+                        type: "task",
+                        link: `/workspaces/${workspace._id}/projects/${project._id}/tasks/${task._id}`,
+                        metadata: {
+                            taskId: task._id,
+                            projectId: project._id,
+                            workspaceId: workspace._id,
+                            removedBy: req.user.name,
+                            removedById: req.user._id,
+                        },
+                    });
+                    console.log(`📨 Removed notification sent to ${assigneeId}`);
+                }
+            }
+        }
       
         task.assignees = assignees;
         await task.save();
       
-        // record activity
         await recordActivity(req.user._id, "updated_task", "Task", taskId, {
           description: `updated task assignees from ${oldAssignees.length} to ${assignees.length}`,
         });
@@ -302,8 +401,9 @@ const updateTaskAssignees = async (req, res) => {
             message: "Internal server error",
         });
     }   
-};  
+};
 
+// ============ UPDATE TASK PRIORITY ============
 const updateTaskPriority = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -325,7 +425,6 @@ const updateTaskPriority = async (req, res) => {
             });
         }
       
-        // ._id
         const isMember = project.members.some(
             (member) => member.user._id.toString() === req.user._id.toString()
         );
@@ -341,9 +440,8 @@ const updateTaskPriority = async (req, res) => {
         task.priority = priority;
         await task.save();
       
-        // record activity
         await recordActivity(req.user._id, "updated_task", "Task", taskId, {
-          description: `updated task priority from ${oldPriority.length} to ${priority.length}`,
+          description: `updated task priority from ${oldPriority} to ${priority}`,
         });
       
         res.status(200).json(task);
@@ -354,8 +452,9 @@ const updateTaskPriority = async (req, res) => {
             message: "Internal server error",
         });
     }   
-};  
+};
 
+// ============ ADD SUBTASK ============
 const addSubTask = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -395,7 +494,6 @@ const addSubTask = async (req, res) => {
         task.subtasks.push(newSubTask);
         await task.save();
       
-        // record activity
         await recordActivity(req.user._id, "created_subtask", "Task", taskId, {
             description: `created subtask ${title}`,
         });
@@ -404,13 +502,13 @@ const addSubTask = async (req, res) => {
 
     } catch (error) {
         console.log(error);
-
         return res.status(500).json({
             message: "Internal server error",
         });
     }
 };
 
+// ============ UPDATE SUBTASK ============
 const updateSubTask = async (req, res) => {
     try {
         const { taskId, subTaskId } = req.params;
@@ -437,7 +535,6 @@ const updateSubTask = async (req, res) => {
         subTask.completed = completed;
         await task.save();
       
-        // record activity
         await recordActivity(req.user._id, "updated_subtask", "Task", taskId, {
             description: `updated subtask ${subTask.title}`,
         });
@@ -451,6 +548,7 @@ const updateSubTask = async (req, res) => {
     }
 };
 
+// ============ GET ACTIVITY ============
 const getActivityByResourceId = async (req, res) => {
     try {
         const { resourceId } = req.params;
@@ -469,6 +567,7 @@ const getActivityByResourceId = async (req, res) => {
     }
 };
 
+// ============ GET COMMENTS ============
 const getCommentsByTaskId = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -487,6 +586,7 @@ const getCommentsByTaskId = async (req, res) => {
     }
 };
 
+// ============ ADD COMMENT ============
 const addComment = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -527,7 +627,6 @@ const addComment = async (req, res) => {
         task.comments.push(newComment._id);
         await task.save();
 
-      // record activity
         await recordActivity(req.user._id, "added_comment", "Task", taskId, {
             description: `added comment ${
                 text.substring(0, 50) + (text.length > 50 ? "..." : "")
@@ -544,6 +643,7 @@ const addComment = async (req, res) => {
     }
 };
 
+// ============ WATCH TASK ============
 const watchTask = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -586,7 +686,6 @@ const watchTask = async (req, res) => {
 
         await task.save();
 
-        // record activity
         await recordActivity(req.user._id, "updated_task", "Task", taskId, {
             description: `${
                 isWatching ? "stopped watching" : "started watching"
@@ -603,6 +702,7 @@ const watchTask = async (req, res) => {
     }
 };
 
+// ============ ARCHIVE/UNARCHIVE TASK ============
 const achievedTask = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -637,9 +737,8 @@ const achievedTask = async (req, res) => {
         task.isArchived = !isAchieved;
         await task.save();
 
-        // record activity
         await recordActivity(req.user._id, "updated_task", "Task", taskId, {
-            description: `${isAchieved ? "unachieved" : "achieved"} task ${
+            description: `${isAchieved ? "unarchived" : "archived"} task ${
                 task.title
             }`,
         });
@@ -654,6 +753,7 @@ const achievedTask = async (req, res) => {
     }
 };
 
+// ============ GET MY TASKS ============
 const getMyTasks = async (req, res) => {
     try {
         const tasks = await Task.find({ assignees: { $in: [req.user._id] } })
@@ -680,7 +780,6 @@ const getArchivedTasks = async (req, res) => {
             });
         }
 
-        // پیدا کردن تمام پروژه‌های workspace
         const projects = await Project.find({
             workspace: workspaceId,
             isArchived: false,
@@ -688,7 +787,6 @@ const getArchivedTasks = async (req, res) => {
 
         const projectIds = projects.map((project) => project._id);
 
-        // پیدا کردن تسک‌های بایگانی شده در آن پروژه‌ها
         const archivedTasks = await Task.find({
             project: { $in: projectIds },
             isArchived: true,
@@ -769,7 +867,7 @@ const unarchiveTask = async (req, res) => {
     }
 };
 
-
+// ============ EXPORT ============
 export { 
     createTask, 
     getTaskById, 
